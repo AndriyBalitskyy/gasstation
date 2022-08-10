@@ -13,12 +13,12 @@ import net.bigpoint.assessment.gasstation.exceptions.GasTooExpensiveException;
 import net.bigpoint.assessment.gasstation.exceptions.NotEnoughGasException;
 
 public class MyGasStation implements GasStation {
-	private List<GasPump> gasPumps = new ArrayList();
-	private Map<GasType, Double> prices = new HashMap();
-	private double revenue = 0;
-	private int NotEnoughGasCount = 0;
-	private int GasTooExpensiveCount = 0;
-	private int saleCount = 0;
+	private volatile List<GasPump> gasPumps = new ArrayList();
+	private volatile Map<GasType, Double> prices = new HashMap();
+	private volatile double revenue = 0;
+	private volatile int NotEnoughGasCount = 0;
+	private volatile int GasTooExpensiveCount = 0;
+	private volatile int saleCount = 0;
 
 	public void addGasPump(GasPump pump) {
 		gasPumps.add(pump);
@@ -28,7 +28,7 @@ public class MyGasStation implements GasStation {
 		return gasPumps;
 	}
 
-	public double buyGas(GasType type, double amountInLiters, double maxPricePerLiter)
+	public synchronized double buyGas(GasType type, double amountInLiters, double maxPricePerLiter)
 			throws NotEnoughGasException, GasTooExpensiveException {
 		
 		Boolean isNotEnoughGas = false;

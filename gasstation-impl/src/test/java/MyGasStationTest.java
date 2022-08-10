@@ -30,7 +30,7 @@ public class MyGasStationTest {
 		theStation.setPrice(GasType.SUPER, 50);
 	}
 
-	@Test
+	@Test(threadPoolSize = 1, invocationCount = 1)
 	public void catchNotEnoughGasException() {
 		Boolean thrownNotEnoughGasException = false;
 		Boolean thrownGasTooExpensiveException = false;
@@ -41,12 +41,14 @@ public class MyGasStationTest {
 		} catch (NotEnoughGasException e) {
 			thrownNotEnoughGasException = true;
 		}
+
+		Assert.assertEquals(theStation.getNumberOfCancellationsNoGas(), 1);
 		
-		Assert.assertEquals(thrownNotEnoughGasException, true);
-		Assert.assertEquals(thrownGasTooExpensiveException, false);
+		Assert.assertEquals(thrownNotEnoughGasException, Boolean.TRUE);
+		Assert.assertEquals(thrownGasTooExpensiveException, Boolean.FALSE);
 	}
 
-	@Test
+	@Test(threadPoolSize = 1, invocationCount = 1)
 	public void catchGasTooExpensiveException() {
 		Boolean thrownNotEnoughGasException = false;
 		Boolean thrownGasTooExpensiveException = false;
@@ -58,8 +60,27 @@ public class MyGasStationTest {
 			thrownNotEnoughGasException = true;
 		}
 
-		Assert.assertEquals(thrownGasTooExpensiveException, true);
-		Assert.assertEquals(thrownNotEnoughGasException, false);
+		Assert.assertEquals(theStation.getNumberOfCancellationsTooExpensive(), 1);
+
+		Assert.assertEquals(thrownGasTooExpensiveException, Boolean.TRUE);
+		Assert.assertEquals(thrownNotEnoughGasException, Boolean.FALSE);
+	}
+
+	@Test(threadPoolSize = 50, invocationCount = 50, timeOut = 5000)
+	public void testNoException() {
+		Boolean noExceptionRunning = false;
+		Boolean catchException = false;
+		try {
+			theStation.buyGas(GasType.DIESEL, 1, 70);
+			noExceptionRunning = true;
+		} catch (GasTooExpensiveException e) {
+			catchException = true;
+		} catch (NotEnoughGasException e) {
+			catchException = true;
+		}
+
+		Assert.assertEquals(noExceptionRunning, Boolean.TRUE);
+		Assert.assertEquals(catchException, Boolean.FALSE);
 	}
 	
 }
