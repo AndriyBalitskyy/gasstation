@@ -1,10 +1,11 @@
 package com.andriybalitskyy;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import net.bigpoint.assessment.gasstation.GasPump;
 import net.bigpoint.assessment.gasstation.GasStation;
@@ -13,12 +14,12 @@ import net.bigpoint.assessment.gasstation.exceptions.GasTooExpensiveException;
 import net.bigpoint.assessment.gasstation.exceptions.NotEnoughGasException;
 
 public class MyGasStation implements GasStation {
-	private volatile List<GasPump> gasPumps = new ArrayList();
-	private volatile Map<GasType, Double> prices = new HashMap();
-	private volatile double revenue = 0;
-	private volatile int NotEnoughGasCount = 0;
-	private volatile int GasTooExpensiveCount = 0;
-	private volatile int saleCount = 0;
+	private CopyOnWriteArrayList<GasPump> gasPumps = new CopyOnWriteArrayList();
+	private ConcurrentMap<GasType, Double> prices = new ConcurrentHashMap<>();
+	private AtomicLong revenue = new AtomicLong(0);
+	private AtomicInteger NotEnoughGasCount = new AtomicInteger(0);
+	private AtomicInteger GasTooExpensiveCount = new AtomicInteger(0);
+	private AtomicInteger saleCount = new AtomicInteger(0);
 
 	public void addGasPump(GasPump pump) {
 		gasPumps.add(pump);
@@ -30,48 +31,47 @@ public class MyGasStation implements GasStation {
 
 	public synchronized double buyGas(GasType type, double amountInLiters, double maxPricePerLiter)
 			throws NotEnoughGasException, GasTooExpensiveException {
-		
-		Boolean isNotEnoughGas = false;
-		
+
 		if(getPrice(type) > maxPricePerLiter) {
-			GasTooExpensiveCount++;
+			GasTooExpensiveCount.incrementAndGet();
 			throw new GasTooExpensiveException();
 		}
-		
+
+		Boolean isEnoughGas = false;
+
 		for(GasPump gasPump : gasPumps) {
 			if(gasPump.getGasType().equals(type)) {
 				if(gasPump.getRemainingAmount() >= amountInLiters) {
 					gasPump.pumpGas(amountInLiters);
-					revenue += amountInLiters * (maxPricePerLiter - getPrice(type));
-					saleCount++;
-				} else {
-					isNotEnoughGas = true;
+					revenue.getAndAdd((long) (amountInLiters * (maxPricePerLiter - getPrice(type))));
+					saleCount.incrementAndGet();
+					isEnoughGas = true;
 				}
 			}
 		}
 		
-		if(isNotEnoughGas) {
-			NotEnoughGasCount++;
+		if(!isEnoughGas) {
+			NotEnoughGasCount.incrementAndGet();
 			throw new NotEnoughGasException();
 		}
-		
+
 		return maxPricePerLiter * amountInLiters;
 	}
 
 	public double getRevenue() {
-		return revenue;
+		return revenue.doubleValue();
 	}
 
 	public int getNumberOfSales() {
-		return saleCount;
+		return saleCount.get();
 	}
 
 	public int getNumberOfCancellationsNoGas() {
-		return NotEnoughGasCount;
+		return NotEnoughGasCount.get();
 	}
 
 	public int getNumberOfCancellationsTooExpensive() {
-		return GasTooExpensiveCount;
+		return GasTooExpensiveCount.get();
 	}
 
 	public double getPrice(GasType type) {
