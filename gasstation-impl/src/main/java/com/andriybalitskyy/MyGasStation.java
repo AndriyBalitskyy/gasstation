@@ -46,6 +46,7 @@ public class MyGasStation implements GasStation {
 					revenue.getAndAdd((long) (amountInLiters * (maxPricePerLiter - getPrice(type))));
 					saleCount.incrementAndGet();
 					isEnoughGas = true;
+					break;
 				}
 			}
 		}

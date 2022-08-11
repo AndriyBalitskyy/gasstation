@@ -5,28 +5,30 @@ import net.bigpoint.assessment.gasstation.GasType;
 import net.bigpoint.assessment.gasstation.exceptions.GasTooExpensiveException;
 import net.bigpoint.assessment.gasstation.exceptions.NotEnoughGasException;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-@ExtendWith(MockitoExtension.class)
 public class MyGasStationTest {
 
-	@Mock
 	private MyGasStation theStation;
-	@Mock
 	private List<ClientBuyGas> clients = new ArrayList<>();
 
 	@BeforeEach
 	public void setUp() {
 		theStation = new MyGasStation();
 
-		GasPump regularGas = new GasPump(GasType.REGULAR, 900);
-		GasPump dieselGas = new GasPump(GasType.DIESEL, 900);
-		GasPump superGas = new GasPump(GasType.SUPER, 900);
+		clients = new ArrayList<>();
+
+		List<ClientBuyGas> clientsBuyRegular = generateClients(100, GasType.REGULAR, 10, 70);
+		List<ClientBuyGas> clientsBuyDiesel = generateClients(100, GasType.DIESEL, 10, 70);
+		List<ClientBuyGas> clientsBuySuper = generateClients(100, GasType.SUPER, 10, 70);
+
+		GasPump regularGas = new GasPump(GasType.REGULAR, clientsBuyRegular.stream().mapToInt(ClientBuyGas::getAmountInLiters).sum());
+		GasPump dieselGas = new GasPump(GasType.DIESEL, clientsBuyDiesel.stream().mapToInt(ClientBuyGas::getAmountInLiters).sum());
+		GasPump superGas = new GasPump(GasType.SUPER, clientsBuySuper.stream().mapToInt(ClientBuyGas::getAmountInLiters).sum());
 
 		theStation.addGasPump(regularGas);
 		theStation.addGasPump(dieselGas);
@@ -36,73 +38,23 @@ public class MyGasStationTest {
 		theStation.setPrice(GasType.DIESEL, 55);
 		theStation.setPrice(GasType.SUPER, 50);
 
-		clients = new ArrayList<>();
-		clients.add(new ClientBuyGas(GasType.DIESEL, 17, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 5, 70));
-		clients.add(new ClientBuyGas(GasType.SUPER, 5, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 5, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 2, 70));
-		clients.add(new ClientBuyGas(GasType.SUPER, 3, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 19, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 7, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 7, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 8, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 1, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 1, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 6, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 5, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 8, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 3, 70));
-		clients.add(new ClientBuyGas(GasType.SUPER, 5, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 2, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 4, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 8, 70));
-		clients.add(new ClientBuyGas(GasType.SUPER, 10, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 14, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 1, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 55, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 2, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 17, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 5, 70));
-		clients.add(new ClientBuyGas(GasType.SUPER, 5, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 5, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 2, 70));
-		clients.add(new ClientBuyGas(GasType.SUPER, 3, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 19, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 7, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 7, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 8, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 1, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 1, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 6, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 5, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 8, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 3, 70));
-		clients.add(new ClientBuyGas(GasType.SUPER, 5, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 2, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 4, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 8, 70));
-		clients.add(new ClientBuyGas(GasType.SUPER, 10, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 14, 70));
-		clients.add(new ClientBuyGas(GasType.DIESEL, 1, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 55, 70));
-		clients.add(new ClientBuyGas(GasType.REGULAR, 2, 70));
+		clients.addAll(clientsBuyRegular);
+		clients.addAll(clientsBuyDiesel);
+		clients.addAll(clientsBuySuper);
 	}
 
 	@Test
 	public void checkCorrectGasPumpAmountLeft() throws InterruptedException {
-
-		ExecutorService service = Executors.newFixedThreadPool(50);
+		ExecutorService service = Executors.newCachedThreadPool();
 		Map<GasType, Double> gasAmountLeft = new HashMap<>();
 
-		CountDownLatch latch = new CountDownLatch(50);
+		CountDownLatch latch = new CountDownLatch(clients.size()/2);
 		for(GasPump gasPump : theStation.getGasPumps()) {
 			gasAmountLeft.put(gasPump.getGasType(), gasPump.getRemainingAmount());
 		}
 		for (ClientBuyGas client : clients) {
 			gasAmountLeft.put(client.getGasType(), gasAmountLeft.get(client.getGasType()) - client.getAmountInLiters());
 		}
-
 
 		for (ClientBuyGas client : clients) {
 			service.submit(() -> {
@@ -117,9 +69,7 @@ public class MyGasStationTest {
 		}
 
 		latch.await();
-
 		service.shutdown();
-
 		service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
 
 		for(GasPump gasPump : theStation.getGasPumps()) {
@@ -131,7 +81,7 @@ public class MyGasStationTest {
 	public void catchNotEnoughGasException() {
 		Assertions.assertThrows(
 				NotEnoughGasException.class,
-				() -> theStation.buyGas(GasType.DIESEL, 1000, 60));
+				() -> theStation.buyGas(GasType.DIESEL, 1000000, 60));
 		Assertions.assertEquals(theStation.getNumberOfCancellationsNoGas(), 1);
 		Assertions.assertEquals(theStation.getNumberOfCancellationsTooExpensive(), 0);
 	}
@@ -145,7 +95,13 @@ public class MyGasStationTest {
 		Assertions.assertEquals(theStation.getNumberOfCancellationsNoGas(), 0);
 	}
 
+	private List<ClientBuyGas> generateClients(int countOfClients, GasType type, int numbRange, int maxPricePerLiter) {
+		return IntStream.range(1, countOfClients).mapToObj(i -> generateClient(type, numbRange, maxPricePerLiter)).collect(Collectors.toList());
+	}
 
+	private ClientBuyGas generateClient(GasType type, int numbRange, int maxPricePerLiter) {
+		return new ClientBuyGas(type, new Random().nextInt(numbRange) + 1, 70);
+	}
 }
 
 class ClientBuyGas {
