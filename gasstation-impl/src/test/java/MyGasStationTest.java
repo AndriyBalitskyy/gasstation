@@ -16,6 +16,7 @@ public class MyGasStationTest {
 
 	private MyGasStation theStation;
 	private List<ClientBuyGas> clients = new ArrayList<>();
+	public static final int STANDARD_MAX_PRICE_PER_LITER = 70;
 
 	@BeforeEach
 	public void setUp() {
@@ -23,9 +24,9 @@ public class MyGasStationTest {
 
 		clients = new ArrayList<>();
 
-		List<ClientBuyGas> clientsBuyRegular = generateClients(50, GasType.REGULAR, 10, 70);
-		List<ClientBuyGas> clientsBuyDiesel = generateClients(50, GasType.DIESEL, 10, 70);
-		List<ClientBuyGas> clientsBuySuper = generateClients(50, GasType.SUPER, 10, 70);
+		List<ClientBuyGas> clientsBuyRegular = generateClients(50, GasType.REGULAR, 10, STANDARD_MAX_PRICE_PER_LITER);
+		List<ClientBuyGas> clientsBuyDiesel = generateClients(50, GasType.DIESEL, 10, STANDARD_MAX_PRICE_PER_LITER);
+		List<ClientBuyGas> clientsBuySuper = generateClients(50, GasType.SUPER, 10, STANDARD_MAX_PRICE_PER_LITER);
 
 		GasPump regularGas = new GasPump(GasType.REGULAR, clientsBuyRegular.stream().mapToInt(ClientBuyGas::getAmountInLiters).sum());
 		GasPump dieselGas = new GasPump(GasType.DIESEL, clientsBuyDiesel.stream().mapToInt(ClientBuyGas::getAmountInLiters).sum());
@@ -42,6 +43,35 @@ public class MyGasStationTest {
 		clients.addAll(clientsBuyRegular);
 		clients.addAll(clientsBuyDiesel);
 		clients.addAll(clientsBuySuper);
+	}
+
+	@Test
+	public void checkCorrectRevenue() throws InterruptedException {
+		double revenue = 0d;
+		for (ClientBuyGas client : clients) {
+			revenue += client.getAmountInLiters() * (STANDARD_MAX_PRICE_PER_LITER - theStation.getPrice(client.getGasType()));
+		}
+
+		ExecutorService service = Executors.newCachedThreadPool();
+		CountDownLatch latch = new CountDownLatch(clients.size()/2);
+
+		for (ClientBuyGas client : clients) {
+			service.submit(() -> {
+				try {
+					theStation.buyGas(client.getGasType(), client.getAmountInLiters(), client.getMaxPricePerLiter());
+				} catch (NotEnoughGasException | GasTooExpensiveException e) {
+					e.printStackTrace();
+				}
+
+			});
+			latch.countDown();
+		}
+
+		latch.await();
+		service.shutdown();
+		service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
+		Assertions.assertEquals(theStation.getRevenue(), revenue);
 	}
 
 	@Test
@@ -77,8 +107,6 @@ public class MyGasStationTest {
 			Assertions.assertEquals(gasPump.getRemainingAmount(), gasAmountLeft.get(gasPump.getGasType()));
 		}
 	}
-
-
 
 	@Test
 	public void catchNotEnoughGasException() {

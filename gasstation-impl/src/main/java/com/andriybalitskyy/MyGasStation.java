@@ -16,10 +16,10 @@ import net.bigpoint.assessment.gasstation.exceptions.NotEnoughGasException;
 public class MyGasStation implements GasStation {
 	private CopyOnWriteArrayList<GasPump> gasPumps = new CopyOnWriteArrayList();
 	private ConcurrentMap<GasType, Double> prices = new ConcurrentHashMap<>();
-	private AtomicLong revenue = new AtomicLong(0);
-	private AtomicInteger NotEnoughGasCount = new AtomicInteger(0);
-	private AtomicInteger GasTooExpensiveCount = new AtomicInteger(0);
-	private AtomicInteger saleCount = new AtomicInteger(0);
+	private AtomicLong revenue = new AtomicLong();
+	private AtomicInteger NotEnoughGasCount = new AtomicInteger();
+	private AtomicInteger GasTooExpensiveCount = new AtomicInteger();
+	private AtomicInteger saleCount = new AtomicInteger();
 
 	public void addGasPump(GasPump pump) {
 		gasPumps.add(pump);
@@ -29,7 +29,7 @@ public class MyGasStation implements GasStation {
 		return gasPumps;
 	}
 
-	public synchronized double buyGas(GasType type, double amountInLiters, double maxPricePerLiter)
+	public double buyGas(GasType type, double amountInLiters, double maxPricePerLiter)
 			throws NotEnoughGasException, GasTooExpensiveException {
 
 		if(getPrice(type) > maxPricePerLiter) {
@@ -42,8 +42,10 @@ public class MyGasStation implements GasStation {
 		for(GasPump gasPump : gasPumps) {
 			if(gasPump.getGasType().equals(type)) {
 				if(gasPump.getRemainingAmount() >= amountInLiters) {
-					gasPump.pumpGas(amountInLiters);
-					revenue.getAndAdd((long) (amountInLiters * (maxPricePerLiter - getPrice(type))));
+					synchronized (gasPump) {
+						gasPump.pumpGas(amountInLiters);
+					}
+					revenue.getAndAdd( (long) (amountInLiters * (maxPricePerLiter - getPrice(type))));
 					saleCount.incrementAndGet();
 					isEnoughGas = true;
 					break;
@@ -82,5 +84,4 @@ public class MyGasStation implements GasStation {
 	public void setPrice(GasType type, double price) {
 		prices.put(type, price);
 	}
-
 }
