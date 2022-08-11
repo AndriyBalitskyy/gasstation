@@ -8,6 +8,7 @@ import org.junit.jupiter.api.*;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -17,6 +18,8 @@ public class MyGasStationTest {
 	private MyGasStation theStation;
 	private List<ClientBuyGas> clients = new ArrayList<>();
 	public static final int STANDARD_MAX_PRICE_PER_LITER = 70;
+	public static final int COUNT_OF_CLIENTS = 50;
+	public static final int NUMBER_RANGE = 10;
 
 	@BeforeEach
 	public void setUp() {
@@ -24,9 +27,9 @@ public class MyGasStationTest {
 
 		clients = new ArrayList<>();
 
-		List<ClientBuyGas> clientsBuyRegular = generateClients(50, GasType.REGULAR, 10, STANDARD_MAX_PRICE_PER_LITER);
-		List<ClientBuyGas> clientsBuyDiesel = generateClients(50, GasType.DIESEL, 10, STANDARD_MAX_PRICE_PER_LITER);
-		List<ClientBuyGas> clientsBuySuper = generateClients(50, GasType.SUPER, 10, STANDARD_MAX_PRICE_PER_LITER);
+		List<ClientBuyGas> clientsBuyRegular = generateClients(COUNT_OF_CLIENTS, GasType.REGULAR, NUMBER_RANGE, STANDARD_MAX_PRICE_PER_LITER);
+		List<ClientBuyGas> clientsBuyDiesel = generateClients(COUNT_OF_CLIENTS, GasType.DIESEL, NUMBER_RANGE, STANDARD_MAX_PRICE_PER_LITER);
+		List<ClientBuyGas> clientsBuySuper = generateClients(COUNT_OF_CLIENTS, GasType.SUPER, NUMBER_RANGE, STANDARD_MAX_PRICE_PER_LITER);
 
 		GasPump regularGas = new GasPump(GasType.REGULAR, clientsBuyRegular.stream().mapToInt(ClientBuyGas::getAmountInLiters).sum());
 		GasPump dieselGas = new GasPump(GasType.DIESEL, clientsBuyDiesel.stream().mapToInt(ClientBuyGas::getAmountInLiters).sum());
@@ -43,6 +46,31 @@ public class MyGasStationTest {
 		clients.addAll(clientsBuyRegular);
 		clients.addAll(clientsBuyDiesel);
 		clients.addAll(clientsBuySuper);
+	}
+
+	@Test
+	public void checkCorrectSales() throws InterruptedException {
+		int salesCount = clients.size();
+		ExecutorService service = Executors.newCachedThreadPool();
+		CountDownLatch latch = new CountDownLatch(clients.size()/2);
+
+		for (ClientBuyGas client : clients) {
+			service.submit(() -> {
+				try {
+					theStation.buyGas(client.getGasType(), client.getAmountInLiters(), client.getMaxPricePerLiter());
+				} catch (NotEnoughGasException | GasTooExpensiveException e) {
+					e.printStackTrace();
+				}
+
+			});
+			latch.countDown();
+		}
+
+		latch.await();
+		service.shutdown();
+		service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
+		Assertions.assertEquals(theStation.getNumberOfSales(), salesCount);
 	}
 
 	@Test
@@ -109,21 +137,65 @@ public class MyGasStationTest {
 	}
 
 	@Test
-	public void catchNotEnoughGasException() {
-		Assertions.assertThrows(
-				NotEnoughGasException.class,
-				() -> theStation.buyGas(GasType.DIESEL, 1000000, 60));
-		Assertions.assertEquals(theStation.getNumberOfCancellationsNoGas(), 1);
+	public void catchNotEnoughGasException() throws InterruptedException {
+		final int impossiblyLargeAmountOfGas = 50000;
+		AtomicInteger countNotEnoughGasExceptions = new AtomicInteger();
+
+		ExecutorService service = Executors.newCachedThreadPool();
+		CountDownLatch latch = new CountDownLatch(clients.size()/2);
+
+		for (ClientBuyGas client : clients) {
+			service.submit(() -> {
+
+				try {
+					theStation.buyGas(client.getGasType(), impossiblyLargeAmountOfGas, client.getMaxPricePerLiter());
+				} catch (NotEnoughGasException e) {
+					countNotEnoughGasExceptions.getAndIncrement();
+				} catch (GasTooExpensiveException e) {
+					e.printStackTrace();
+				}
+
+			});
+			latch.countDown();
+		}
+
+		latch.await();
+		service.shutdown();
+		service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
+		Assertions.assertEquals(theStation.getNumberOfCancellationsNoGas(), countNotEnoughGasExceptions.get());
 		Assertions.assertEquals(theStation.getNumberOfCancellationsTooExpensive(), 0);
 	}
 
 	@Test
-	public void catchGasTooExpensiveException() {
-		Assertions.assertThrows(
-				GasTooExpensiveException.class,
-				() -> theStation.buyGas(GasType.REGULAR, 100, 30));
-		Assertions.assertEquals(theStation.getNumberOfCancellationsTooExpensive(), 1);
+	public void catchGasTooExpensiveException() throws InterruptedException {
+		final int noRealCheapPricePerLiter = 30;
+		AtomicInteger countGasTooExpensiveExceptions = new AtomicInteger();
+
+		ExecutorService service = Executors.newCachedThreadPool();
+		CountDownLatch latch = new CountDownLatch(clients.size()/2);
+
+		for (ClientBuyGas client : clients) {
+			service.submit(() -> {
+
+				try {
+					theStation.buyGas(client.getGasType(), client.getAmountInLiters(), noRealCheapPricePerLiter);
+				} catch (NotEnoughGasException e) {
+					e.printStackTrace();
+				} catch (GasTooExpensiveException e) {
+					countGasTooExpensiveExceptions.getAndIncrement();
+				}
+
+			});
+			latch.countDown();
+		}
+
+		latch.await();
+		service.shutdown();
+		service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
 		Assertions.assertEquals(theStation.getNumberOfCancellationsNoGas(), 0);
+		Assertions.assertEquals(theStation.getNumberOfCancellationsTooExpensive(), countGasTooExpensiveExceptions.get());
 	}
 
 	@Test
@@ -156,7 +228,7 @@ public class MyGasStationTest {
 	}
 
 	private ClientBuyGas generateClient(GasType type, int numbRange, int maxPricePerLiter) {
-		return new ClientBuyGas(type, new Random().nextInt(numbRange) + 1, 70);
+		return new ClientBuyGas(type, new Random().nextInt(numbRange) + 1, maxPricePerLiter);
 	}
 }
 
