@@ -8,6 +8,7 @@ import org.junit.jupiter.api.*;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -22,9 +23,9 @@ public class MyGasStationTest {
 
 		clients = new ArrayList<>();
 
-		List<ClientBuyGas> clientsBuyRegular = generateClients(100, GasType.REGULAR, 10, 70);
-		List<ClientBuyGas> clientsBuyDiesel = generateClients(100, GasType.DIESEL, 10, 70);
-		List<ClientBuyGas> clientsBuySuper = generateClients(100, GasType.SUPER, 10, 70);
+		List<ClientBuyGas> clientsBuyRegular = generateClients(50, GasType.REGULAR, 10, 70);
+		List<ClientBuyGas> clientsBuyDiesel = generateClients(50, GasType.DIESEL, 10, 70);
+		List<ClientBuyGas> clientsBuySuper = generateClients(50, GasType.SUPER, 10, 70);
 
 		GasPump regularGas = new GasPump(GasType.REGULAR, clientsBuyRegular.stream().mapToInt(ClientBuyGas::getAmountInLiters).sum());
 		GasPump dieselGas = new GasPump(GasType.DIESEL, clientsBuyDiesel.stream().mapToInt(ClientBuyGas::getAmountInLiters).sum());
@@ -77,6 +78,8 @@ public class MyGasStationTest {
 		}
 	}
 
+
+
 	@Test
 	public void catchNotEnoughGasException() {
 		Assertions.assertThrows(
@@ -93,6 +96,31 @@ public class MyGasStationTest {
 				() -> theStation.buyGas(GasType.REGULAR, 100, 30));
 		Assertions.assertEquals(theStation.getNumberOfCancellationsTooExpensive(), 1);
 		Assertions.assertEquals(theStation.getNumberOfCancellationsNoGas(), 0);
+	}
+
+	@Test
+	public void testCorrectRunningWithoutExceptions() throws InterruptedException {
+		AtomicReference<Boolean> isNotEnoughGasExceptionOrGasTooExpensiveException = new AtomicReference<>(false);
+		ExecutorService service = Executors.newCachedThreadPool();
+		CountDownLatch latch = new CountDownLatch(clients.size()/2);
+
+		for (ClientBuyGas client : clients) {
+			service.submit(() -> {
+				try {
+					theStation.buyGas(client.getGasType(), client.getAmountInLiters(), client.getMaxPricePerLiter());
+				} catch (NotEnoughGasException | GasTooExpensiveException e) {
+					isNotEnoughGasExceptionOrGasTooExpensiveException.set(true);
+				}
+
+			});
+			latch.countDown();
+		}
+
+		latch.await();
+		service.shutdown();
+		service.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
+		Assertions.assertEquals(isNotEnoughGasExceptionOrGasTooExpensiveException.get(), Boolean.FALSE);
 	}
 
 	private List<ClientBuyGas> generateClients(int countOfClients, GasType type, int numbRange, int maxPricePerLiter) {
